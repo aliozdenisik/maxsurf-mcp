@@ -21,10 +21,11 @@ from .guard import TIER_DIAGNOSTICS, guarded, register
 from .native_call_policy import PROTECTED_WORKFLOWS, apply_file_policy, policy_blocker
 
 
-MAX_HANDLES = 256
+MAX_ENUM_BATCH = 256
+# One full object page and its active enumerator must remain usable together.
+MAX_HANDLES = MAX_ENUM_BATCH + 1
 MAX_VALUES = 100000
 MAX_DEPTH = 32
-MAX_ENUM_BATCH = 256
 _handles: OrderedDict[str, tuple] = OrderedDict()
 
 
@@ -455,6 +456,7 @@ def native_enumerate(enum_handle: str, operation: str = "next", count: int = 1,
     interface = _owned(enum_handle, module, stamp, enumerator=True).interface
     try:
         if operation == "next":
+            _handles.move_to_end(enum_handle)
             # Installed Maxsurf 2026 fills only the first slot of Next(n) when
             # n > 1, losing earlier elements. Build bounded batches from the
             # working, standard single-item call instead.

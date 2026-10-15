@@ -462,6 +462,24 @@ class NativeAutomationTests(unittest.TestCase):
         self.assertEqual(batch["fetched"], 3)
         self.assertTrue(batch["exhausted"])
 
+    def test_full_object_pages_keep_enumerator_and_returned_handles_alive(self):
+        child = Dispatch(Info("IChild"))
+        token = self.open_enum([child] * 300)["native_enum_handle"]
+        first = self.enumerate(token, count=256)
+        self.assertEqual(first["fetched"], 256)
+        self.assertIn(token, na._handles)
+        for item in first["result"]:
+            self.assertIs(na._owned(item["native_handle"], self.module,
+                                   na._session_stamp(self.session)), child)
+        second = self.enumerate(token, count=256)
+        self.assertEqual(second["fetched"], 44)
+        self.assertTrue(second["exhausted"])
+        self.assertIn(token, na._handles)
+        for item in second["result"]:
+            self.assertIs(na._owned(item["native_handle"], self.module,
+                                   na._session_stamp(self.session)), child)
+        self.assertLessEqual(len(na._handles), na.MAX_HANDLES)
+
     def test_only_exact_newenum_contract_bypasses_underscore_restriction(self):
         for name, dispid, kind, args, returns in (
                 ("_NewEnum", 7, 2, [], 13), ("_NewEnum", -4, 1, [], 13),
